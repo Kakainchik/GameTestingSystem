@@ -127,15 +127,19 @@ function ServerCard({ server, onSettings }: { server: ServerData; onSettings: (s
               alignItems: "center",
               gap: 0.75,
               minWidth: 0,
-              p: 0,
-              color: "text.secondary",
+              px: 1,
+              py: 0.5,
+              borderRadius: 1.5,
+              bgcolor: "rgba(59,130,246,0.08)",
+              color: "#2563eb",
               textTransform: "none",
               justifyContent: "flex-start",
-              "&:hover": { bgcolor: "transparent", color: "text.primary" },
+              transition: "background-color 0.2s, color 0.2s",
+              "&:hover": { bgcolor: "rgba(59,130,246,0.18)", color: "#1d4ed8" },
             }}
           >
-            <PeopleOutlined sx={{ fontSize: 15, color: "text.secondary" }} />
-            <Typography variant="body2" color="text.secondary">{server.testers} testers</Typography>
+            <PeopleOutlined sx={{ fontSize: 15, color: "inherit" }} />
+            <Typography variant="body2" color="inherit">{server.testers} testers</Typography>
           </Button>
           <Button
             variant="text"
@@ -146,15 +150,19 @@ function ServerCard({ server, onSettings }: { server: ServerData; onSettings: (s
               alignItems: "center",
               gap: 0.75,
               minWidth: 0,
-              p: 0,
-              color: "text.secondary",
+              px: 1,
+              py: 0.5,
+              borderRadius: 1.5,
+              bgcolor: "rgba(168,85,247,0.08)",
+              color: "#7c3aed",
               textTransform: "none",
               justifyContent: "flex-start",
-              "&:hover": { bgcolor: "transparent", color: "text.primary" },
+              transition: "background-color 0.2s, color 0.2s",
+              "&:hover": { bgcolor: "rgba(168,85,247,0.18)", color: "#6d28d9" },
             }}
           >
-            <DatabaseOutlined sx={{ fontSize: 15, color: "text.secondary" }} />
-            <Typography variant="body2" color="text.secondary">{server.dataTypes} data types</Typography>
+            <DatabaseOutlined sx={{ fontSize: 15, color: "inherit" }} />
+            <Typography variant="body2" color="inherit">{server.dataTypes} data types</Typography>
           </Button>
         </Box>
       </CardContent>
