@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { ChevronDown, TrendingUp, Minus, TrendingDown, BarChart2, Info, Search } from "lucide-react";
+import { ChevronDown, TrendingUp, Minus, TrendingDown, BarChart2, Info } from "lucide-react";
 
 type Level = { id: string; name: string; type: string };
 type Metric = { id: string; name: string; typeId: string };
@@ -97,7 +97,7 @@ const METRIC_UNITS: Record<string, string> = {
 };
 
 function SelectDropdown<T extends { id: string; name: string }>({
-  label, value, options, onChange, placeholder, renderOption, searchable = false, filterOptionText,
+  label, value, options, onChange, placeholder, renderOption,
 }: {
   label: string;
   value: T | null;
@@ -105,90 +105,27 @@ function SelectDropdown<T extends { id: string; name: string }>({
   onChange: (v: T) => void;
   placeholder: string;
   renderOption?: (o: T) => React.ReactNode;
-  searchable?: boolean;
-  filterOptionText?: (o: T) => string;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value?.name ?? "");
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setQuery(value?.name ?? "");
-  }, [value]);
-
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, []);
-
-  const normalizedQuery = query.trim().toLowerCase();
-  const filteredOptions = searchable && normalizedQuery
-    ? options.filter((option) => {
-      const text = (filterOptionText?.(option) ?? option.name).toLowerCase();
-      return text.includes(normalizedQuery);
-    })
-    : options;
 
   return (
-    <div ref={rootRef} className="relative">
+    <div className="relative">
       <label className="block text-muted-foreground mb-1.5" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
         {label}
       </label>
-      {searchable ? (
-        <div className="relative">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={open ? query : (value?.name ?? query)}
-            onFocus={() => setOpen(true)}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setOpen(true);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setOpen(false);
-              }
-
-              if (event.key === "Enter" && filteredOptions.length > 0) {
-                event.preventDefault();
-                onChange(filteredOptions[0]);
-                setQuery(filteredOptions[0].name);
-                setOpen(false);
-              }
-            }}
-            placeholder={placeholder}
-            className="w-full rounded-lg border border-border bg-input-background py-2.5 pl-9 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground hover:border-primary/40 focus:border-primary/50"
-          />
-          <button
-            type="button"
-            onClick={() => setOpen((p) => !p)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label={`Toggle ${label.toLowerCase()} options`}
-          >
-            <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setOpen((p) => !p)}
-          className="w-full flex items-center justify-between bg-input-background border border-border rounded-lg px-3 py-2.5 text-left hover:border-primary/40 transition-colors"
-          style={{ fontSize: "0.9rem" }}
-        >
-          <span className={value ? "text-foreground" : "text-muted-foreground"}>
-            {value ? value.name : placeholder}
-          </span>
-          <ChevronDown size={15} className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-        </button>
-      )}
+      <button
+        onClick={() => setOpen((p) => !p)}
+        className="w-full flex items-center justify-between bg-input-background border border-border rounded-lg px-3 py-2.5 text-left hover:border-primary/40 transition-colors"
+        style={{ fontSize: "0.9rem" }}
+      >
+        <span className={value ? "text-foreground" : "text-muted-foreground"}>
+          {value ? value.name : placeholder}
+        </span>
+        <ChevronDown size={15} className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
       {open && (
         <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-          {filteredOptions.map((opt) => (
+          {options.map((opt) => (
             <button
               key={opt.id}
               onClick={() => { onChange(opt); setOpen(false); }}
@@ -198,15 +135,19 @@ function SelectDropdown<T extends { id: string; name: string }>({
               {renderOption ? renderOption(opt) : opt.name}
             </button>
           ))}
-          {filteredOptions.length === 0 && (
-            <div className="px-4 py-3 text-sm text-muted-foreground">
-              No matching {label.toLowerCase()} found.
-            </div>
-          )}
         </div>
       )}
     </div>
   );
+}
+
+function median(values: number[]) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
 }
 
 function StatCard({ label, value, unit, sub, trend }: { label: string; value: string; unit: string; sub?: string; trend?: "up" | "down" | "neutral" }) {
@@ -246,17 +187,15 @@ const CustomTooltip = ({ active, payload, label, unit }: any) => {
 
 export function CollectedDataView() {
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
-  const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<Metric | null>(null);
 
   const chartData = selectedMetric ? CHART_DATA[selectedMetric.id] : null;
   const unit = selectedMetric ? METRIC_UNITS[selectedMetric.id] : "";
-  const selectedLevelData = chartData?.find((d) => d.level.replace(" — ", " ").replace("Dungeon — Level", "Dungeon").startsWith(selectedLevel?.name?.split(" — ")[0] ?? "__"));
   const globalAvg = chartData ? chartData.reduce((s, d) => s + d.avg, 0) / chartData.length : 0;
-
-  const trendValue = selectedLevelData && chartData
-    ? selectedLevelData.avg - globalAvg
-    : 0;
+  const globalMedian = chartData ? median(chartData.map((d) => d.median)) : 0;
+  const minValue = chartData ? Math.min(...chartData.map((d) => d.min)) : 0;
+  const maxValue = chartData ? Math.max(...chartData.map((d) => d.max)) : 0;
+  const totalSessions = chartData ? chartData.reduce((sum, d) => sum + d.sessions, 0) : 0;
 
   const showChart = selectedMetric && chartData;
 
@@ -275,7 +214,7 @@ export function CollectedDataView() {
           label="Server"
           value={selectedServer}
           options={SERVERS}
-          onChange={(s) => { setSelectedServer(s); setSelectedLevel(null); setSelectedMetric(null); }}
+          onChange={(s) => { setSelectedServer(s); setSelectedMetric(null); }}
           placeholder="Select a server..."
           renderOption={(s) => (
             <div>
@@ -285,26 +224,11 @@ export function CollectedDataView() {
           )}
         />
         <SelectDropdown
-          label="Level"
-          value={selectedLevel}
-          options={LEVELS}
-          onChange={(l) => { setSelectedLevel(l); setSelectedMetric(null); }}
-          placeholder={selectedServer ? "Search levels..." : "Select server first"}
-          searchable
-          filterOptionText={(level) => `${level.name} ${level.type}`}
-          renderOption={(l) => (
-            <div className="flex items-center justify-between">
-              <span>{l.name}</span>
-              <span className="text-muted-foreground" style={{ fontSize: "0.75rem" }}>{l.type}</span>
-            </div>
-          )}
-        />
-        <SelectDropdown
           label="Data Metric"
           value={selectedMetric}
           options={METRICS}
           onChange={setSelectedMetric}
-          placeholder={selectedLevel ? "Select a metric..." : "Select level first"}
+          placeholder={selectedServer ? "Select a metric..." : "Select server first"}
         />
       </div>
 
@@ -316,38 +240,30 @@ export function CollectedDataView() {
           </div>
           <h3 className="text-foreground mb-2">Start by selecting a server</h3>
           <p className="text-muted-foreground" style={{ fontSize: "0.9rem", maxWidth: 360 }}>
-            Choose a data collection server, then a level, and finally the metric you want to analyze.
+            Choose a data collection server, then the metric you want to analyze.
           </p>
         </div>
       )}
 
-      {selectedServer && !selectedLevel && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-muted-foreground" style={{ fontSize: "0.9rem" }}>Search for a level to continue</p>
-        </div>
-      )}
-
-      {selectedServer && selectedLevel && !selectedMetric && (
+      {selectedServer && !selectedMetric && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-muted-foreground" style={{ fontSize: "0.9rem" }}>Select a metric to view its chart</p>
         </div>
       )}
 
       {/* Chart Section */}
-      {showChart && selectedLevelData && (
+      {showChart && (
         <>
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-4">
             <StatCard
-              label="Average (selected level)"
-              value={selectedLevelData.avg.toFixed(1)}
+              label="Average"
+              value={globalAvg.toFixed(1)}
               unit={unit}
-              sub={trendValue > 0 ? `+${trendValue.toFixed(1)} vs global avg` : `${trendValue.toFixed(1)} vs global avg`}
-              trend={trendValue > 0 ? "up" : trendValue < 0 ? "down" : "neutral"}
             />
-            <StatCard label="Median" value={String(selectedLevelData.median)} unit={unit} />
-            <StatCard label="Min / Max" value={`${selectedLevelData.min} – ${selectedLevelData.max}`} unit={unit} />
-            <StatCard label="Sessions recorded" value={String(selectedLevelData.sessions)} unit="sessions" />
+            <StatCard label="Median" value={String(globalMedian)} unit={unit} />
+            <StatCard label="Min / Max" value={`${minValue} – ${maxValue}`} unit={unit} />
+            <StatCard label="Sessions recorded" value={String(totalSessions)} unit="sessions" />
           </div>
 
           {/* Chart */}
@@ -360,7 +276,7 @@ export function CollectedDataView() {
                 </p>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground bg-accent/60 px-2.5 py-1 rounded-lg" style={{ fontSize: "0.78rem" }}>
-                <Info size={12} /> Highlighted: {selectedLevel?.name}
+                <Info size={12} /> All levels
               </div>
             </div>
 
@@ -382,56 +298,8 @@ export function CollectedDataView() {
                 />
                 <Tooltip content={<CustomTooltip unit={unit} />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                 <ReferenceLine y={globalAvg} stroke="var(--muted-foreground)" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: "Global avg", fontSize: 11, fill: "var(--muted-foreground)", position: "insideTopRight" }} />
-                <Bar
-                  dataKey="avg"
-                  name="Average"
-                  radius={[6, 6, 0, 0]}
-                  fill="var(--primary)"
-                  fillOpacity={0.25}
-                  label={false}
-                  // Highlight selected level
-                  shape={(props: any) => {
-                    const { x, y, width, height, level } = props;
-                    const isSelected = level === selectedLevel?.name
-                      || (selectedLevel?.name.includes("Level") && level === `Dungeon ${selectedLevel.name.split(" ")[selectedLevel.name.split(" ").length - 1]}`);
-                    return (
-                      <rect
-                        x={x}
-                        y={y}
-                        width={width}
-                        height={height}
-                        rx={6}
-                        ry={6}
-                        fill={isSelected ? "#6366f1" : "var(--primary)"}
-                        fillOpacity={isSelected ? 0.85 : 0.3}
-                      />
-                    );
-                  }}
-                />
-                <Bar
-                  dataKey="median"
-                  name="Median"
-                  radius={[6, 6, 0, 0]}
-                  fill="#10b981"
-                  fillOpacity={0.4}
-                  shape={(props: any) => {
-                    const { x, y, width, height, level } = props;
-                    const isSelected = level === selectedLevel?.name
-                      || (selectedLevel?.name.includes("Level") && level === `Dungeon ${selectedLevel.name.split(" ")[selectedLevel.name.split(" ").length - 1]}`);
-                    return (
-                      <rect
-                        x={x}
-                        y={y}
-                        width={width}
-                        height={height}
-                        rx={6}
-                        ry={6}
-                        fill="#10b981"
-                        fillOpacity={isSelected ? 0.85 : 0.35}
-                      />
-                    );
-                  }}
-                />
+                <Bar dataKey="avg" name="Average" radius={[6, 6, 0, 0]} fill="#6366f1" fillOpacity={0.85} />
+                <Bar dataKey="median" name="Median" radius={[6, 6, 0, 0]} fill="#10b981" fillOpacity={0.85} />
               </BarChart>
             </ResponsiveContainer>
 
@@ -439,7 +307,7 @@ export function CollectedDataView() {
             <div className="flex items-center gap-5 mt-3 justify-center">
               <div className="flex items-center gap-1.5" style={{ fontSize: "0.8rem" }}>
                 <div className="w-3 h-3 rounded-sm" style={{ background: "#6366f1", opacity: 0.85 }} />
-                <span className="text-muted-foreground">Average (highlighted = selected level)</span>
+                <span className="text-muted-foreground">Average</span>
               </div>
               <div className="flex items-center gap-1.5" style={{ fontSize: "0.8rem" }}>
                 <div className="w-3 h-3 rounded-sm" style={{ background: "#10b981", opacity: 0.8 }} />

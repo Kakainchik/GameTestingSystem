@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
-import Autocomplete from "@mui/material/Autocomplete";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
@@ -94,11 +93,6 @@ const CHART_DATA: Record<string, BarEntry[]> = {
   ],
 };
 
-const LEVEL_LABELS: Record<string, string> = {
-  "l1": "Tutorial", "l2": "Forest Path", "l3": "Dungeon 1",
-  "l4": "Dungeon 2", "l5": "Dungeon 3", "l6": "Boss Lich", "l7": "Village Hub",
-};
-
 const CustomTooltip = ({ active, payload, label, unit }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -115,15 +109,18 @@ const CustomTooltip = ({ active, payload, label, unit }: any) => {
 
 export function CollectedDataPage() {
   const [serverId, setServerId] = useState("");
-  const [levelId, setLevelId] = useState("");
   const [metricId, setMetricId] = useState("");
 
   const chartData = metricId ? CHART_DATA[metricId] : null;
   const metric = METRICS.find((m) => m.id === metricId);
-  const selectedLevelLabel = levelId ? LEVEL_LABELS[levelId] : null;
-  const selectedLevelData = chartData && selectedLevelLabel ? chartData.find((d) => d.level === selectedLevelLabel) : null;
   const globalAvg = chartData ? chartData.reduce((s, d) => s + d.avg, 0) / chartData.length : 0;
-  const delta = selectedLevelData ? selectedLevelData.avg - globalAvg : 0;
+  const medianValues = chartData ? [...chartData.map((d) => d.median)].sort((a, b) => a - b) : [];
+  const globalMedian = medianValues.length
+    ? medianValues[Math.floor(medianValues.length / 2)]
+    : 0;
+  const minValue = chartData ? Math.min(...chartData.map((d) => d.min)) : 0;
+  const maxValue = chartData ? Math.max(...chartData.map((d) => d.max)) : 0;
+  const totalSessions = chartData ? chartData.reduce((sum, d) => sum + d.sessions, 0) : 0;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
@@ -137,47 +134,19 @@ export function CollectedDataPage() {
         <Grid size={{ xs: 12, sm: 4 }}>
           <TextField
             select fullWidth label="Server" size="small" value={serverId}
-            onChange={(e) => { setServerId(e.target.value); setLevelId(""); setMetricId(""); }}
+            onChange={(e) => { setServerId(e.target.value); setMetricId(""); }}
           >
             <MenuItem value=""><em>Select a server...</em></MenuItem>
             {SERVERS.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
           </TextField>
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-          <Autocomplete
-            fullWidth
-            size="small"
-            options={LEVELS}
-            value={LEVELS.find((l) => l.id === levelId) ?? null}
-            onChange={(_, newValue) => { setLevelId(newValue?.id ?? ""); setMetricId(""); }}
-            getOptionLabel={(option) => option.name}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            disabled={!serverId}
-            openOnFocus
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Level"
-                placeholder={serverId ? "Search levels..." : "Select server first"}
-              />
-            )}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 1 }}>
-                  <span>{option.name}</span>
-                  <Chip label={option.type} size="small" sx={{ height: 16, fontSize: "0.65rem" }} />
-                </Box>
-              </li>
-            )}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
           <TextField
             select fullWidth label="Data Metric" size="small" value={metricId}
             onChange={(e) => setMetricId(e.target.value)}
-            disabled={!levelId}
+            disabled={!serverId}
           >
-            <MenuItem value=""><em>{levelId ? "Select a metric..." : "Select level first"}</em></MenuItem>
+            <MenuItem value=""><em>{serverId ? "Select a metric..." : "Select server first"}</em></MenuItem>
             {METRICS.map((m) => <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>)}
           </TextField>
         </Grid>
@@ -191,20 +160,20 @@ export function CollectedDataPage() {
           </Box>
           <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>Select a server to begin</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360, textAlign: "center" }}>
-            Choose a server, level, and metric to explore aggregated data and comparisons across all levels.
+            Choose a server and metric to explore aggregated data and comparisons across all levels.
           </Typography>
         </Box>
       )}
 
       {/* Stats + Chart */}
-      {selectedLevelData && metric && (
+      {chartData && metric && (
         <>
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {[
-              { label: "Average (selected level)", value: selectedLevelData.avg.toFixed(1), unit: metric.unit, delta: delta !== 0 ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} vs global avg` : "= global avg", up: delta >= 0 },
-              { label: "Median", value: String(selectedLevelData.median), unit: metric.unit },
-              { label: "Min / Max", value: `${selectedLevelData.min} – ${selectedLevelData.max}`, unit: metric.unit },
-              { label: "Sessions recorded", value: String(selectedLevelData.sessions), unit: "sessions" },
+              { label: "Average", value: globalAvg.toFixed(1), unit: metric.unit },
+              { label: "Median", value: String(globalMedian), unit: metric.unit },
+              { label: "Min / Max", value: `${minValue} – ${maxValue}`, unit: metric.unit },
+              { label: "Sessions recorded", value: String(totalSessions), unit: "sessions" },
             ].map((stat) => (
               <Grid size={{ xs: 6, sm: 3 }} key={stat.label}>
                 <Card elevation={0}>
@@ -214,12 +183,6 @@ export function CollectedDataPage() {
                       <Typography variant="h5" sx={{ fontWeight: 700 }}>{stat.value}</Typography>
                       <Typography variant="caption" color="text.secondary">{stat.unit}</Typography>
                     </Box>
-                    {stat.delta && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.25 }}>
-                        {stat.up ? <TrendingUpOutlined sx={{ fontSize: 13, color: "#10b981" }} /> : <TrendingDownOutlined sx={{ fontSize: 13, color: "#f43f5e" }} />}
-                        <Typography variant="caption" sx={{ color: stat.up ? "#10b981" : "#f43f5e" }}>{stat.delta}</Typography>
-                      </Box>
-                    )}
                   </CardContent>
                 </Card>
               </Grid>
@@ -237,7 +200,7 @@ export function CollectedDataPage() {
                 </Box>
                 <Chip
                   icon={<InfoOutlined sx={{ fontSize: "0.9rem !important" }} />}
-                  label={`Highlighted: ${selectedLevelData.level}`}
+                  label="All levels"
                   size="small"
                   sx={{ bgcolor: "rgba(99,102,241,0.1)", color: "primary.light", fontSize: "0.75rem" }}
                 />
@@ -250,22 +213,14 @@ export function CollectedDataPage() {
                   <YAxis tick={{ fontSize: 11, fill: "#8b8fa8" }} axisLine={false} tickLine={false} unit={` ${metric.unit}`} width={60} />
                   <Tooltip content={<CustomTooltip unit={metric.unit} />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
                   <ReferenceLine y={globalAvg} stroke="#8b8fa8" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: "Avg", fontSize: 10, fill: "#8b8fa8", position: "insideTopRight" }} />
-                  <Bar dataKey="avg" name="Average" radius={[5, 5, 0, 0]}>
-                    {chartData!.map((entry) => (
-                      <Cell key={entry.level} fill={entry.level === selectedLevelLabel ? "#6366f1" : "rgba(99,102,241,0.3)"} />
-                    ))}
-                  </Bar>
-                  <Bar dataKey="median" name="Median" radius={[5, 5, 0, 0]}>
-                    {chartData!.map((entry) => (
-                      <Cell key={entry.level} fill={entry.level === selectedLevelLabel ? "#10b981" : "rgba(16,185,129,0.25)"} />
-                    ))}
-                  </Bar>
+                  <Bar dataKey="avg" name="Average" radius={[5, 5, 0, 0]} fill="#6366f1" fillOpacity={0.85} />
+                  <Bar dataKey="median" name="Median" radius={[5, 5, 0, 0]} fill="#10b981" fillOpacity={0.85} />
                 </BarChart>
               </ResponsiveContainer>
 
               <Box sx={{ display: "flex", gap: 3, mt: 1.5, justifyContent: "center", flexWrap: "wrap" }}>
                 {[
-                  { color: "#6366f1", label: "Average (highlighted = selected level)" },
+                  { color: "#6366f1", label: "Average" },
                   { color: "#10b981", label: "Median" },
                 ].map((l) => (
                   <Box key={l.label} sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
