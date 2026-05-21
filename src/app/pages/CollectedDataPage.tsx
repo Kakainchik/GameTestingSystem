@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
+import Autocomplete from "@mui/material/Autocomplete";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
@@ -143,14 +144,32 @@ export function CollectedDataPage() {
           </TextField>
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-          <TextField
-            select fullWidth label="Level" size="small" value={levelId}
-            onChange={(e) => { setLevelId(e.target.value); setMetricId(""); }}
+          <Autocomplete
+            fullWidth
+            size="small"
+            options={LEVELS}
+            value={LEVELS.find((l) => l.id === levelId) ?? null}
+            onChange={(_, newValue) => { setLevelId(newValue?.id ?? ""); setMetricId(""); }}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
             disabled={!serverId}
-          >
-            <MenuItem value=""><em>{serverId ? "Select a level..." : "Select server first"}</em></MenuItem>
-            {LEVELS.map((l) => <MenuItem key={l.id} value={l.id}>{l.name} <Chip label={l.type} size="small" sx={{ ml: 1, height: 16, fontSize: "0.65rem" }} /></MenuItem>)}
-          </TextField>
+            openOnFocus
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Level"
+                placeholder={serverId ? "Search levels..." : "Select server first"}
+              />
+            )}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 1 }}>
+                  <span>{option.name}</span>
+                  <Chip label={option.type} size="small" sx={{ height: 16, fontSize: "0.65rem" }} />
+                </Box>
+              </li>
+            )}
+          />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
           <TextField

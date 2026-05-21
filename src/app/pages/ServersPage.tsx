@@ -18,7 +18,7 @@ import WifiOutlined from "@mui/icons-material/WifiOutlined";
 import WifiOffOutlined from "@mui/icons-material/WifiOffOutlined";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import { NewServerModal } from "../components/NewServerModal";
-import { ServerSettingsModal, type ServerData } from "../components/ServerSettingsModal";
+import { ServerSettingsModal, type ServerData, type ServerSettingsTab } from "../components/ServerSettingsModal";
 
 const INITIAL_SERVERS: ServerData[] = [
   { id: "s1", name: "Mario-Alpha", game: "Mario", online: true, testers: 12, dataTypes: 8, lastActive: "2 min ago", region: "EU West" },
@@ -31,6 +31,12 @@ export function ServersPage() {
   const [servers, setServers] = useState<ServerData[]>(INITIAL_SERVERS);
   const [newOpen, setNewOpen] = useState(false);
   const [settingsServer, setSettingsServer] = useState<ServerData | null>(null);
+  const [settingsTab, setSettingsTab] = useState<ServerSettingsTab>("overview");
+
+  const openSettings = (server: ServerData, initialTab: ServerSettingsTab = "overview") => {
+    setSettingsServer(server);
+    setSettingsTab(initialTab);
+  };
 
   const handleCreate = (name: string, game: string, region: string) => {
     const regions: Record<string, string> = {
@@ -60,20 +66,20 @@ export function ServersPage() {
       <Grid container spacing={2}>
         {servers.map((server) => (
           <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={server.id}>
-            <ServerCard server={server} onSettings={() => setSettingsServer(server)} />
+            <ServerCard server={server} onSettings={openSettings} />
           </Grid>
         ))}
       </Grid>
 
       <NewServerModal open={newOpen} onClose={() => setNewOpen(false)} onCreate={handleCreate} />
       {settingsServer && (
-        <ServerSettingsModal server={settingsServer} onClose={() => setSettingsServer(null)} />
+        <ServerSettingsModal server={settingsServer} initialTab={settingsTab} onClose={() => setSettingsServer(null)} />
       )}
     </Box>
   );
 }
 
-function ServerCard({ server, onSettings }: { server: ServerData; onSettings: () => void }) {
+function ServerCard({ server, onSettings }: { server: ServerData; onSettings: (server: ServerData, initialTab?: ServerSettingsTab) => void }) {
   return (
     <Card elevation={0} sx={{ height: "100%", "&:hover": { borderColor: "rgba(99,102,241,0.3)" }, transition: "border-color 0.2s" }}>
       <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
@@ -89,7 +95,7 @@ function ServerCard({ server, onSettings }: { server: ServerData; onSettings: ()
             </Box>
           </Box>
           <Tooltip title="Server Settings">
-            <IconButton size="small" onClick={onSettings} sx={{ color: "text.secondary" }}>
+            <IconButton size="small" onClick={() => onSettings(server)} sx={{ color: "text.secondary" }}>
               <SettingsOutlined fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -112,14 +118,44 @@ function ServerCard({ server, onSettings }: { server: ServerData; onSettings: ()
 
         {/* Stats */}
         <Box sx={{ display: "flex", gap: 3 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => onSettings(server, "testers")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.75,
+              minWidth: 0,
+              p: 0,
+              color: "text.secondary",
+              textTransform: "none",
+              justifyContent: "flex-start",
+              "&:hover": { bgcolor: "transparent", color: "text.primary" },
+            }}
+          >
             <PeopleOutlined sx={{ fontSize: 15, color: "text.secondary" }} />
             <Typography variant="body2" color="text.secondary">{server.testers} testers</Typography>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          </Button>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => onSettings(server, "data")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.75,
+              minWidth: 0,
+              p: 0,
+              color: "text.secondary",
+              textTransform: "none",
+              justifyContent: "flex-start",
+              "&:hover": { bgcolor: "transparent", color: "text.primary" },
+            }}
+          >
             <DatabaseOutlined sx={{ fontSize: 15, color: "text.secondary" }} />
             <Typography variant="body2" color="text.secondary">{server.dataTypes} data types</Typography>
-          </Box>
+          </Button>
         </Box>
       </CardContent>
     </Card>

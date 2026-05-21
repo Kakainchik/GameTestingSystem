@@ -80,8 +80,7 @@ function ServerCard({ server, onSettings }: { server: ServerData; onSettings: ()
         <button
           onClick={onSettings}
           className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          title="Server Settings"
-        >
+          title="Server Settings">
           <Settings size={18} />
         </button>
       </div>

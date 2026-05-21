@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { ChevronDown, TrendingUp, Minus, TrendingDown, BarChart2, Info } from "lucide-react";
+import { ChevronDown, TrendingUp, Minus, TrendingDown, BarChart2, Info, Search } from "lucide-react";
 
 type Level = { id: string; name: string; type: string };
 type Metric = { id: string; name: string; typeId: string };
@@ -97,7 +97,7 @@ const METRIC_UNITS: Record<string, string> = {
 };
 
 function SelectDropdown<T extends { id: string; name: string }>({
-  label, value, options, onChange, placeholder, renderOption,
+  label, value, options, onChange, placeholder, renderOption, searchable = false, filterOptionText,
 }: {
   label: string;
   value: T | null;
@@ -105,26 +105,90 @@ function SelectDropdown<T extends { id: string; name: string }>({
   onChange: (v: T) => void;
   placeholder: string;
   renderOption?: (o: T) => React.ReactNode;
+  searchable?: boolean;
+  filterOptionText?: (o: T) => string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value?.name ?? "");
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setQuery(value?.name ?? "");
+  }, [value]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = searchable && normalizedQuery
+    ? options.filter((option) => {
+      const text = (filterOptionText?.(option) ?? option.name).toLowerCase();
+      return text.includes(normalizedQuery);
+    })
+    : options;
+
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <label className="block text-muted-foreground mb-1.5" style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
         {label}
       </label>
-      <button
-        onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center justify-between bg-input-background border border-border rounded-lg px-3 py-2.5 text-left hover:border-primary/40 transition-colors"
-        style={{ fontSize: "0.9rem" }}
-      >
-        <span className={value ? "text-foreground" : "text-muted-foreground"}>
-          {value ? value.name : placeholder}
-        </span>
-        <ChevronDown size={15} className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
+      {searchable ? (
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={open ? query : (value?.name ?? query)}
+            onFocus={() => setOpen(true)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setOpen(false);
+              }
+
+              if (event.key === "Enter" && filteredOptions.length > 0) {
+                event.preventDefault();
+                onChange(filteredOptions[0]);
+                setQuery(filteredOptions[0].name);
+                setOpen(false);
+              }
+            }}
+            placeholder={placeholder}
+            className="w-full rounded-lg border border-border bg-input-background py-2.5 pl-9 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground hover:border-primary/40 focus:border-primary/50"
+          />
+          <button
+            type="button"
+            onClick={() => setOpen((p) => !p)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label={`Toggle ${label.toLowerCase()} options`}
+          >
+            <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen((p) => !p)}
+          className="w-full flex items-center justify-between bg-input-background border border-border rounded-lg px-3 py-2.5 text-left hover:border-primary/40 transition-colors"
+          style={{ fontSize: "0.9rem" }}
+        >
+          <span className={value ? "text-foreground" : "text-muted-foreground"}>
+            {value ? value.name : placeholder}
+          </span>
+          <ChevronDown size={15} className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      )}
       {open && (
         <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-          {options.map((opt) => (
+          {filteredOptions.map((opt) => (
             <button
               key={opt.id}
               onClick={() => { onChange(opt); setOpen(false); }}
@@ -134,6 +198,11 @@ function SelectDropdown<T extends { id: string; name: string }>({
               {renderOption ? renderOption(opt) : opt.name}
             </button>
           ))}
+          {filteredOptions.length === 0 && (
+            <div className="px-4 py-3 text-sm text-muted-foreground">
+              No matching {label.toLowerCase()} found.
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -220,7 +289,9 @@ export function CollectedDataView() {
           value={selectedLevel}
           options={LEVELS}
           onChange={(l) => { setSelectedLevel(l); setSelectedMetric(null); }}
-          placeholder={selectedServer ? "Select a level..." : "Select server first"}
+          placeholder={selectedServer ? "Search levels..." : "Select server first"}
+          searchable
+          filterOptionText={(level) => `${level.name} ${level.type}`}
           renderOption={(l) => (
             <div className="flex items-center justify-between">
               <span>{l.name}</span>
@@ -252,7 +323,7 @@ export function CollectedDataView() {
 
       {selectedServer && !selectedLevel && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-muted-foreground" style={{ fontSize: "0.9rem" }}>Select a level to continue</p>
+          <p className="text-muted-foreground" style={{ fontSize: "0.9rem" }}>Search for a level to continue</p>
         </div>
       )}
 
@@ -285,11 +356,11 @@ export function CollectedDataView() {
               <div>
                 <h3 className="text-foreground">{selectedMetric.name}</h3>
                 <p className="text-muted-foreground" style={{ fontSize: "0.8rem" }}>
-                  Comparison across all levels · {selectedServer.game}
+                  Comparison across all levels · {selectedServer?.game}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground bg-accent/60 px-2.5 py-1 rounded-lg" style={{ fontSize: "0.78rem" }}>
-                <Info size={12} /> Highlighted: {selectedLevel.name}
+                <Info size={12} /> Highlighted: {selectedLevel?.name}
               </div>
             </div>
 

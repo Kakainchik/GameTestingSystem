@@ -23,6 +23,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    watch: {
+      usePolling: true
+    }
+  },
   resolve: {
     alias: {
       // Alias @ to the src directory

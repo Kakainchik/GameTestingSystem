@@ -44,7 +44,9 @@ export type ServerData = {
   testers: number; dataTypes: number; lastActive: string; region: string;
 };
 
-type Tab = "overview" | "data" | "testers";
+export type ServerSettingsTab = "overview" | "data" | "testers";
+
+type Tab = ServerSettingsTab;
 
 const DATA_TYPES = [
   { id: "integer", icon: <TagOutlined fontSize="small" />, label: "Integer", desc: "Whole number (score, kills, level)", color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
@@ -82,8 +84,8 @@ function generateKey() {
   return "gm_live_" + Array.from({ length: 40 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-export function ServerSettingsModal({ server, onClose }: { server: ServerData; onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>("overview");
+export function ServerSettingsModal({ server, onClose, initialTab = "overview" }: { server: ServerData; onClose: () => void; initialTab?: ServerSettingsTab }) {
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
